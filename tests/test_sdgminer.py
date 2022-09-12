@@ -1,0 +1,1 @@
+from sdgminer import sdgminer
