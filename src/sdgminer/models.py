@@ -81,6 +81,8 @@ class SDGModels(object):
             A dataframe with 'prob_relevant' column indicating the probability a text is relevant. Indices are taken
             from ids argument.
         """
+        if ids is None:
+            ids = range(len(corpus))
         df_probs = pd.DataFrame({'prob_relevant': self.__models['binary'].predict_proba(corpus)[:, 1]}, index = ids)
         df_probs.index.name = 'text_id'
         return df_probs
@@ -146,7 +148,8 @@ class SDGModels(object):
         df_probs : pd.DataFrame
             A dataframe each column corresponding to each model's predictions. Indices are aligned with the corpus.
         """
-        assert len(corpus) == len(ids), 'corpus and ids must be of the same length.'
+        if ids is not None:
+            assert len(corpus) == len(ids), 'corpus and ids must be of the same length.'
         df_probs = self.predict_relevant(corpus = corpus, ids = ids)
         for model_type in ('multiclass', 'multilabel'):
             df_temp = self.predict_sdgs(model_type = model_type, corpus = corpus, ids = ids, threshold = threshold)
