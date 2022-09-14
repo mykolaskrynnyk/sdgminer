@@ -23,4 +23,4 @@ def test_extract():
         text_extracted = re.sub(pattern  = r'\s+', repl = ' ', string = text_extractor.text)
         match_count = sum(1 for sent in text_source_sents if sent in text_extracted)
         overlap = match_count / len(text_source_sents)
-        assert overlap > .8, f'{file_name} failed with overlap = {overlap:.2f}'
+        assert overlap > .9, f'{file_name} failed with overlap = {overlap:.2f}'

@@ -5,7 +5,7 @@ This module defines TextExtractor class for extracting text data from PDFs.
 import warnings
 
 # data wrangling
-from pdfminer.high_level import extract_text
+import pypdfium2 as pdfium
 
 # utils
 from tqdm import tqdm
@@ -32,7 +32,8 @@ class TextExtractor(object):
     def __init__(self, filepath: str):
         assert filepath.endswith('.pdf'), '`filepath` must point to a .pdf.'
         self.__filepath = filepath
-        self.__text = None
+        self.__pages = dict()
+        self.__errors = list()
 
     def __repr__(self) -> str:
         return 'TextExtractor()'
@@ -48,8 +49,12 @@ class TextExtractor(object):
         -------
         self: TextExtractor
         """
-        # TODO: use low-level API for extracting page by page
-        self.__text = extract_text(self.__filepath)
+        pdf = pdfium.PdfDocument(self.__filepath)
+        for idx, page in tqdm(enumerate(pdf)):
+            try:
+                self.__pages[idx] = page.get_textpage().get_text()
+            except:
+                self.__errors.append(idx)
         return self
 
     @property
@@ -62,7 +67,9 @@ class TextExtractor(object):
         text: str
             A concatenated string of texts extracted from all pages.
         """
-        if self.__text is None:
+        if len(self.__pages) == 0:
             warnings.warn(f'Text has not been extracted yet. Run `extract_text` first.')
-        text = self.__text
+        if len(self.__errors) > 0:
+            warnings.warn(f'Extraction from {len(self.__errors)} pages has failed, e.g., {self.__errors[:5]}')
+        text = ' '.join(self.__pages.values())
         return text

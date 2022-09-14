@@ -18,7 +18,7 @@ spacy = "3.4.*"
 en-core-web-sm = {url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.4.0/en_core_web_sm-3.4.0.tar.gz"}
 pydantic = "1.9.*"
 networkx = "^2.8.6"
-"pdfminer.six" = "^20220524"
+pypdfium2 = ">=2.11.0"
 
 [tool.poetry.dev-dependencies]
 
