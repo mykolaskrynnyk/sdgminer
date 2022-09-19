@@ -18,40 +18,6 @@ import networkx as nx
 from .utils import sdg_id2name, sdg_id2color, listify
 
 
-def assemble_paragraphs(df_sents: pd.DataFrame, n_sentences: int = 3) -> pd.DataFrame:
-    """
-    Assemble longer texts from sentences.
-
-    This is used to create variable-length text structures from sentence-level observations. Uses window sliding
-    with the step sice of 1.
-
-    Parameters
-    ----------
-    df_sents : pd.DataFrame
-        A dataframe of sentence-level data.
-    n_sentences : int
-        An integer number indicating how many sentences to include in a paragraph.
-
-    Returns
-    -------
-    df_paragraphs : pd.DataFrame
-        A dataframe of paragraph-level data.
-    """
-    assert tuple(df_sents.columns[:2]) == ('text', 'text_'), 'The first two columns must be "text" and "text_".'
-
-    # sliding window of step size 1
-    paragraphs = list()
-    for idx in range(df_sents.shape[0]-n_sentences+1):
-        indices = [idx + i for i in range(n_sentences)]  # indices of the sentences to be considered as a paragraph
-        text = ' '.join(df_sents.values[indices, 0])
-        text_ = ' '.join(df_sents.values[indices, 1])
-        paragraphs.append((map(str, indices), text, text_))
-    df_paragraphs = pd.DataFrame(paragraphs, columns = ['text_id', 'text', 'text_'])
-    df_paragraphs['text_id'] = df_paragraphs['text_id'].str.join('-')  # corresponds to original sentence indices
-    df_paragraphs.set_index('text_id', inplace = True)
-    return df_paragraphs
-
-
 def calculate_sdg_salience(y_pred: List[Dict[int, float]]) -> Dict[int, float]:
     """
     Calculate the number of texts predicted for each sdg and normalise by the most largest number.
