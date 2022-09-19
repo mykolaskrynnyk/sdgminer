@@ -72,10 +72,9 @@ def calculate_sdg_salience(y_pred: List[Dict[int, float]]) -> Dict[int, float]:
             continue
         counter.update(list(d))  # works with dicts, list, tuples, etc.
 
-    if len(counter) > 1:
-        sdg2salience = {k: v / max(counter.values()) for k, v in counter.items()}
-    else:
-        sdg2salience = dict()
+    # normalise
+    maximum = max(counter.values()) if len(counter) > 1 else 1
+    sdg2salience = {k: counter.get(k, 0) / maximum for k in range(1, 18)}
     return sdg2salience
 
 

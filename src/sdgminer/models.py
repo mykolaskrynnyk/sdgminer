@@ -22,16 +22,16 @@ class SDGModels(object):
 
     Parameters
     ----------
-    path : List[str]
+    path : str
         A path to the directory where models are stored.
     version : str
         A string version of the models to use.
     """
-    def __init__(self, path: List[str], version: str):
+    def __init__(self, path: str, version: str):
         self.__models = {
-            'binary': joblib.load(os.path.join(*path, f'clf-logreg-binary-v{version}.joblib')),
-            'multiclass': joblib.load(os.path.join(*path, f'clf-logreg-multiclass-v{version}.joblib')),
-            'multilabel': joblib.load(os.path.join(*path, f'clf-mlp-multilabel-v{version}.joblib')),
+            'binary': joblib.load(os.path.join(path, f'clf-logreg-binary-v{version}.joblib')),
+            'multiclass': joblib.load(os.path.join(path, f'clf-logreg-multiclass-v{version}.joblib')),
+            'multilabel': joblib.load(os.path.join(path, f'clf-mlp-multilabel-v{version}.joblib')),
         }
 
     def __repr__(self) -> str:
@@ -188,7 +188,7 @@ class SDGModels(object):
 
     def get_clean_features(self) -> Dict[int, List[str]]:
         """
-        Extract features that are top predictions for each SDG from the multiclass classifier but do not
+        Extract features that are top predictors for each SDG from the multiclass classifier but do not
         repeat any feature in more than one sdg. If a feature appears in more than one sdg, the function returns it
         only for the sdg where it is ranked higher in the list of features.
 

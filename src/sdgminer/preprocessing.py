@@ -29,15 +29,16 @@ class TextCleaner(object):
     allowed_pos : Set[str]
         A set of spaCy part-of-speech string tags to include in the cleaned document. Any token that has a pos tag
         which is not in this set is excluded.
-
+    max_length : int
+        Maximum sequence length is passed to a spaCy model. Sequences that are longer are truncated to max_length.
     Attributes
     ----------
     nlp : spacy.lang.en.English
         A English spacy model.
     """
-    def __init__(self, allowed_pos: Set[str] = None):
+    def __init__(self, allowed_pos: Set[str] = None, max_length: int = 1_000_000):
         self.nlp = spacy.load('en_core_web_sm', disable = ['ner'])
-        self.nlp.max_length = 2_000_000
+        self.nlp.max_length = max_length
         self.allowed_pos = allowed_pos or {'NOUN', 'VERB', 'ADJ'}
 
     def __repr__(self) -> str:
