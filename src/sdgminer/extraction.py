@@ -2,6 +2,7 @@
 This module defines TextExtractor class for extracting text data from PDFs.
 """
 # standard library
+import os
 import warnings
 
 # data wrangling
@@ -15,12 +16,7 @@ class TextExtractor(object):
     """
     Extract text from a .pdf document.
 
-    This is a wrapper around pdfplumber to extract text information from pdfs.
-
-    Parameters
-    ----------
-    filepath : str
-        A path to a pdf file to be extracted.
+    This is a wrapper around pypdfium2 to extract text information from PDFs.
 
     Attributes
     ----------
@@ -29,11 +25,9 @@ class TextExtractor(object):
     errors: dict
         A mapping from page numbers to error messages, if any were encountered.
     """
-    def __init__(self, filepath: str):
-        assert filepath.endswith('.pdf'), '`filepath` must point to a .pdf.'
-        self.__filepath = filepath
-        self.__pages = dict()
-        self.__errors = list()
+    def __init__(self):
+        self.__filepath = None
+        self.__text = None
 
     def __repr__(self) -> str:
         return 'TextExtractor()'
@@ -41,20 +35,38 @@ class TextExtractor(object):
     def __str__(self) -> str:
         return f'TextExtractor for {self.__filepath} with {len(self.pages):,} pages.'
 
-    def extract_text(self) -> bool:
+    def extract_text(self, filepath: str) -> bool:
         """
         Extract text from a .pdf document.
 
+        Parameters
+        ----------
+        filepath : str
+            A path to a pdf or txt file to be extracted.
         Returns
         -------
         self: TextExtractor
         """
-        pdf = pdfium.PdfDocument(self.__filepath)
-        for idx, page in tqdm(enumerate(pdf)):
-            try:
-                self.__pages[idx] = page.get_textpage().get_text()
-            except:
-                self.__errors.append(idx)
+        root, extension = os.path.splitext(filepath)
+
+        # reset any data that is already contained
+        self.__filepath = filepath
+        if extension == '.pdf':
+            page_texts = list()
+            pdf = pdfium.PdfDocument(filepath)
+            for idx, page in tqdm(enumerate(pdf)):
+                try:
+                    page_text = page.get_textpage().get_text()
+                    page_texts.append(page_text)
+                except:
+                    warnings.warn(f'Failed to extract text from page {idx}.')
+            self.__text = ' '.join(page_texts)
+        elif extension == '.txt':
+            with open(self.__filepath, 'r') as file:
+                self.__text = file.read()
+        else:
+            raise ValueError(f'{extension} files are not supported. Supported extensions are .pdf and .txt')
+
         return self
 
     @property
@@ -65,11 +77,6 @@ class TextExtractor(object):
         Returns
         -------
         text: str
-            A concatenated string of texts extracted from all pages.
+            A text from a file.
         """
-        if len(self.__pages) == 0:
-            warnings.warn(f'Text has not been extracted yet. Run `extract_text` first.')
-        if len(self.__errors) > 0:
-            warnings.warn(f'Extraction from {len(self.__errors)} pages has failed, e.g., {self.__errors[:5]}')
-        text = ' '.join(self.__pages.values())
-        return text
+        return self.__text
