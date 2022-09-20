@@ -3,53 +3,75 @@ Miscellaneous mapping and utilities for modifying and displaying sdg-related dat
 """
 # standard library
 import re
-from typing import Iterable, Tuple, Any
+from typing import Iterable, Tuple, Any, List
 
 # web services
 import requests
 
 
-# the list can be found at https://sdgs.un.org/goals
-sdg_id2name = {
-    1: 'Goal 1: No Poverty',
-    2: 'Goal 2: Zero Hunger',
-    3: 'Goal 3: Good Health and Well-being',
-    4: 'Goal 4: Quality Education',
-    5: 'Goal 5: Gender Equality',
-    6: 'Goal 6: Clean Water and Sanitation',
-    7: 'Goal 7: Affordable and Clean Energy',
-    8: 'Goal 8: Decent Work and Economic Growth',
-    9: 'Goal 9: Industry, Innovation and Infrastructure',
-    10: 'Goal 10: Reduced Inequality',
-    11: 'Goal 11: Sustainable Cities and Communities',
-    12: 'Goal 12: Responsible Consumption and Production',
-    13: 'Goal 13: Climate Action',
-    14: 'Goal 14: Life Below Water',
-    15: 'Goal 15: Life on Land',
-    16: 'Goal 16: Peace and Justice Strong Institutions',
-    17: 'Goal 17: Partnerships to achieve the Goal'
-}
+class SDGConverter(object):
+    def __init__(self):
+        # the list can be found at https://sdgs.un.org/goals
+        self.__sdg_id2name = {
+            1: 'Goal 1: No Poverty',
+            2: 'Goal 2: Zero Hunger',
+            3: 'Goal 3: Good Health and Well-being',
+            4: 'Goal 4: Quality Education',
+            5: 'Goal 5: Gender Equality',
+            6: 'Goal 6: Clean Water and Sanitation',
+            7: 'Goal 7: Affordable and Clean Energy',
+            8: 'Goal 8: Decent Work and Economic Growth',
+            9: 'Goal 9: Industry, Innovation and Infrastructure',
+            10: 'Goal 10: Reduced Inequality',
+            11: 'Goal 11: Sustainable Cities and Communities',
+            12: 'Goal 12: Responsible Consumption and Production',
+            13: 'Goal 13: Climate Action',
+            14: 'Goal 14: Life Below Water',
+            15: 'Goal 15: Life on Land',
+            16: 'Goal 16: Peace and Justice Strong Institutions',
+            17: 'Goal 17: Partnerships to achieve the Goal'
+        }
 
-# from the sdg guidelines at https://www.un.org/sustainabledevelopment/news/communications-material/
-sdg_id2color = {
-    1: '#e5243b',
-    2: '#DDA63A',
-    3: '#4C9F38',
-    4: '#C5192D',
-    5: '#FF3A21',
-    6: '#26BDE2',
-    7: '#FCC30B',
-    8: '#A21942',
-    9: '#FD6925',
-    10: '#DD1367',
-    11: '#FD9D24',
-    12: '#BF8B2E',
-    13: '#3F7E44',
-    14: '#0A97D9',
-    15: '#56C02B',
-    16: '#00689D',
-    17: '#19486A'
-}
+        # from the sdg guidelines at https://www.un.org/sustainabledevelopment/news/communications-material/
+        self.__sdg_id2color = {
+            1: '#e5243b',
+            2: '#DDA63A',
+            3: '#4C9F38',
+            4: '#C5192D',
+            5: '#FF3A21',
+            6: '#26BDE2',
+            7: '#FCC30B',
+            8: '#A21942',
+            9: '#FD6925',
+            10: '#DD1367',
+            11: '#FD9D24',
+            12: '#BF8B2E',
+            13: '#3F7E44',
+            14: '#0A97D9',
+            15: '#56C02B',
+            16: '#00689D',
+            17: '#19486A'
+        }
+
+    def id2name(self, sdg_id: int):
+        return self.__sdg_id2name.get(sdg_id)
+
+    def ids2names(self, sdg_ids: List[int]):
+        return list(map(self.id2name, sdg_ids))
+
+    def id2color(self, sdg_id: int):
+        return self.sdg_id2color.get(sdg_id)
+
+    def ids2colors(self, sdg_ids: List[int]):
+        return list(map(self.id2color, sdg_ids))
+
+    @property
+    def sdg_id2name(self):
+        return self.__sdg_id2name
+
+    @property
+    def sdg_id2color(self):
+        return self.__sdg_id2color
 
 
 def listify(l: Iterable[Any]) -> str:
