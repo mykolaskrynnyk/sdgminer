@@ -2,11 +2,10 @@
 This module defines plotting routines for SDG analysis.
 """
 # standard library
-from typing import Dict
+from typing import Tuple
 
 # data wrangling
 import numpy as np
-import pandas as pd
 
 # graphs/networks
 import networkx as nx
@@ -17,50 +16,40 @@ import plotly.graph_objects as go
 import plotly.io as pio
 from bokeh.plotting import from_networkx
 from bokeh.models import (
-    EdgesAndLinkedNodes, NodesAndLinkedEdges, BoxZoomTool, Circle, HoverTool,
-    MultiLine, Plot, Range1d, ResetTool, BoxSelectTool, TapTool
+    NodesAndLinkedEdges, Circle, HoverTool, MultiLine, Plot, Range1d, ResetTool, ColumnDataSource, LabelSet
 )
 
 # local packages
-from .utils import sdg_id2name, sdg_id2color
+from .entities import SalienceRecord
 
 # other settings
 pio.templates.default = 'plotly_white'
 
 
-def plot_sdg_salience(sdgs: Dict[int, float]):
+def plot_sdg_salience(salience_record: SalienceRecord) -> go.Figure:
     """
-    Plot a bra chart of sdg salience in the document.
+    Plot a bar chart of sdg salience in the document.
 
     Plot an sdg-coloured barchart of relative sdg salience in the document.
 
     Parameters
     ----------
-    sdgs : Dict[int, float]
-        A mapping from sdg ids to their relative salience. If any sdg is missing from the mapping, it is assumed to
-        have zero relative salience.
+    salience_record : SalienceRecord
+        A mapping from sdg ids to their relative salience.
 
     Returns
     -------
     fig : plotly.graph_objects.Figure
         A plotly bar chart figure.
     """
-    for sdg in range(1, 18):
-        if sdg not in sdgs:  # fill in values for missing sdgs, if any exist
-            sdgs[sdg] = 0.
-
-    df_sdgs = pd.DataFrame(sdgs.items(), columns = ['sdg', 'salience'])
-    df_sdgs.sort_values('sdg', ignore_index = True, inplace = True)
-    df_sdgs['sdg_name'] = df_sdgs['sdg'].replace(sdg_id2name)
-    df_sdgs['sdg'] = df_sdgs['sdg'].astype(str)  # cast to string for plotting
 
     fig = px.bar(
-        data_frame = df_sdgs,
-        x = 'sdg',
+        data_frame = salience_record.df,
+        x = 'sdg_id',
         y = 'salience',
         custom_data = ['sdg_name'],
-        color = 'sdg',
-        color_discrete_map = {str(k): v for k, v in sdg_id2color.items()}
+        color = 'sdg_id',
+        color_discrete_map = dict(salience_record.df[['sdg_id', 'sdg_color']].values)
     )
 
     fig.update_layout(
@@ -88,17 +77,22 @@ def plot_sdg_salience(sdgs: Dict[int, float]):
     return fig
 
 
-def plot_sdg_salience_comparison(df_salience: pd.DataFrame):
+def plot_sdg_salience_comparison(
+        salience_record_x: SalienceRecord,
+        salience_record_y: SalienceRecord,
+        names: Tuple[str, str] = ('x', 'y')
+    ) -> go.Figure:
     """
-    Plot a bra chart of sdg salience in the document.
+    Plot a grouped bar chart of two sdg salience records.
 
     Plot an sdg-coloured barchart of relative sdg salience in the document.
 
     Parameters
     ----------
-    sdgs : Dict[int, float]
-        A mapping from sdg ids to their relative salience. If any sdg is missing from the mapping, it is assumed to
-        have zero relative salience.
+    salience_record_x : SalienceRecord
+        A mapping from sdg ids to their relative salience.
+    salience_record_y : SalienceRecord
+        A mapping from sdg ids to their relative salience.
 
     Returns
     -------
@@ -106,15 +100,16 @@ def plot_sdg_salience_comparison(df_salience: pd.DataFrame):
         A plotly bar chart figure.
     """
     fig = go.Figure()
-    for idx in (1, 2):  # two columns that refer to the uploaded file names
+    shapes = ['.', 'x']
+    for name, salience_record in zip(names, [salience_record_x, salience_record_y]):
         fig.add_trace(
             go.Bar(
-                name = df_salience.columns[idx],
-                x = df_salience['sdg'].tolist(),
-                y = df_salience.iloc[:, idx].tolist(),
-                customdata = np.transpose([df_salience['sdg_name'].tolist()]),
-                marker_color = df_salience['colour'].tolist(),
-                marker_pattern_shape = ('x', '.')[idx-1],
+                name = name,
+                x = salience_record.df['sdg_id'].tolist(),
+                y = salience_record.df['salience'].tolist(),
+                customdata = np.transpose([salience_record.df['sdg_name'].tolist()]),
+                marker_color = salience_record.df['sdg_color'].tolist(),
+                marker_pattern_shape = shapes.pop(),
                 hovertemplate = '<b>%{customdata[0]}</b><br>Relative salience: %{y:.2f}'
             )
         )
@@ -139,22 +134,35 @@ def plot_sdg_salience_comparison(df_salience: pd.DataFrame):
     return fig
 
 
-def plot_sdg_graph(G: nx.Graph):
+def plot_sdg_graph(G: nx.Graph, show_edge_features: bool = True, width: int = 600, height: int = 800):
     """
     Plot a network graph showing linkages between sdgs.
+
     Parameters
     ----------
     G : nx.Graph
         A NetworkX graph to be plotted.
+    show_edge_features : bool, default=True
+        If True, edge features, i.e. keywords, are displayed, otherwise only edge weights are shown.
+    width : int, default=600
+        Figure width.
+    height : int, default=800
+        Figure height.
 
     Returns
     -------
     plot : bokeh.Plot
         A Bokeh figure.
     """
+
+    # removing nodes with tiny near-zero relative salience
+    G = G.copy()
+    remove_nodes = [node for node, weight in nx.get_node_attributes(G, 'weight').items() if weight < 0.01]
+    G.remove_nodes_from(remove_nodes)
+
     plot = Plot(
-        # width = 800,
-        height = 800,
+        width = width,
+        height = height,
         x_range = Range1d(-1.15, 1.15),
         y_range = Range1d(-1.15, 1.15),
         title = 'SDG Connections Graph'
@@ -167,13 +175,18 @@ def plot_sdg_graph(G: nx.Graph):
         center = (0,0)
     )
 
+    if show_edge_features:
+        edge_tooltip = [('Weight', '@weight'), ('Linked Topics', '<br>@features{safe}')]  # {safe} does not escape HTML
+    else:
+        edge_tooltip = [('Weight', '@weight')]
+
     plot.add_tools(
         HoverTool(
             tooltips = [('SDG', '@index'), ('', '@name'), ('Salience', '@weight')],
             renderers = [graph_renderer.node_renderer]
         ),
         HoverTool(
-            tooltips = [('Weight', '@weight'), ('Linked Topics', '<br>@features{safe}')],  # {safe} does not escape HTML
+            tooltips = edge_tooltip,
             renderers = [graph_renderer.edge_renderer]
         ),
         # BoxZoomTool(),
@@ -195,6 +208,32 @@ def plot_sdg_graph(G: nx.Graph):
     # configuring policies
     graph_renderer.selection_policy = NodesAndLinkedEdges()
     #graph_renderer.inspection_policy = EdgesAndLinkedNodes()
-
     plot.renderers.append(graph_renderer)
+
+    # calculating edge positions
+    x, y = zip(*graph_renderer.layout_provider.graph_layout.values())
+    node_labels = nx.get_node_attributes(G, 'name')  # {1: 'Goal 1...'}
+    node_weights = nx.get_node_attributes(G, 'weight')  # {1: 12.345...}
+    source = ColumnDataSource({
+        'x': x,
+        'y': y,
+        'name': [str(node_name) for node_name in node_labels.keys()],
+        'h_offset': [-5 if node_name < 10 else -9 for node_name in node_labels.keys()],
+        # move up if a node is too small
+        'v_offset': [-5 if node_weights[node_name] > 20 else 10 for node_name in node_labels.keys()],
+        # make black if a node label is moved up
+        'color': ['white' if node_weights[sdg] > 20 else 'black' for sdg in node_labels.keys()]
+    })
+    labels = LabelSet(
+        x='x',
+        y='y',
+        text='name',
+        source=source,
+        x_offset='h_offset',
+        y_offset='v_offset',
+        text_color='color',
+        # background_fill_color='black'
+    )
+    plot.renderers.append(labels)
+
     return plot
