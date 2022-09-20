@@ -18,7 +18,7 @@ class SDGModels(object):
     """
     Load pre-trained models and make predictions on texts.
 
-    This is a container-class to interact with pre-trained ML models..
+    This is a container-class to interact with pre-trained ML models.
 
     Parameters
     ----------
@@ -29,7 +29,6 @@ class SDGModels(object):
     """
     def __init__(self, path: str, version: str):
         self.__models = {
-            'binary': joblib.load(os.path.join(path, f'clf-logreg-binary-v{version}.joblib')),
             'multiclass': joblib.load(os.path.join(path, f'clf-logreg-multiclass-v{version}.joblib')),
             'multilabel': joblib.load(os.path.join(path, f'clf-mlp-multilabel-v{version}.joblib')),
         }
@@ -50,7 +49,7 @@ class SDGModels(object):
         ----------
         corpus : List[str]
             A list of texts to predict sdgs for.
-        threshold: float, default=.5
+        threshold: float, optional, default=.5
             A minimum probability threshold to assign an sdg label.
 
         Returns
@@ -58,38 +57,17 @@ class SDGModels(object):
         df_probs : pd.DataFrame
             A dataframe each column corresponding to each model's predictions. Indices are aligned with the corpus.
         """
-        df_probs = self.predict(corpus = corpus, threshold = threshold)
+        df_probs = self.predict_with_models(corpus=corpus, threshold=threshold)
         return df_probs
 
-    def predict_relevant(self, corpus: List[str], ids: List[Any]) -> pd.DataFrame:
+    def predict_with_model(
+            self,
+            model_type: str,
+            corpus: List[str],
+            ids: List[Any] = None,
+            threshold: float = .5) -> pd.DataFrame:
         """
-        Predict if texts in the corpus are related to sdgs at all.
-
-        Uses a binary classifier trained on sdg-relevant and sdg-irrelevant texts. Provides a probability estimate
-        that a given text is related to sdgs.
-
-        Parameters
-        ----------
-        corpus : List[str]
-            A list of texts to predict sdgs for.
-        ids : List[Any], optional
-            An list of ids to be used as indices in the output dataframe.
-
-        Returns
-        -------
-        df_probs : pd.DataFrame
-            A dataframe with 'prob_relevant' column indicating the probability a text is relevant. Indices are taken
-            from ids argument.
-        """
-        if ids is None:
-            ids = range(len(corpus))
-        df_probs = pd.DataFrame({'prob_relevant': self.__models['binary'].predict_proba(corpus)[:, 1]}, index = ids)
-        df_probs.index.name = 'text_id'
-        return df_probs
-
-    def predict_sdgs(self, model_type: str, corpus: List[str], ids: List[Any] = None, threshold: float = .5) -> pd.DataFrame:
-        """
-        Predict sdg labels for texts in the corpus using either a multiclass or multilabel model.
+        Predict sdg labels for a given corpus using either a multiclass or multilabel model.
 
         Uses one of the two pre-trained models to assign sdg labels to texts in the corpus. For each text provides a
         dict of predicted sdgs and their respective probabilities. Excludes any predictions that have a probability
@@ -97,10 +75,14 @@ class SDGModels(object):
 
         Parameters
         ----------
+        model_type: {'multiclass', 'multilabel'}
+            One of the two available model types.
         corpus : List[str]
             A list of texts to predict sdgs for.
         ids : List[Any], optional
-            A list of ids to be used as indices in the output dataframe.
+            A list of ids to be used as indices in the output dataframe. If not specified, a range index is used.
+        threshold : float, optional, default=.5
+            A minimum probability threshold to assign an sdg label.
 
         Returns
         -------
@@ -108,28 +90,28 @@ class SDGModels(object):
             A dataframe with one column mapping sdgs to predicted probabilities for each text. Indices are taken
             from ids argument.
         """
-        assert model_type == 'multiclass' or model_type == 'multilabel'
+        assert model_type in {'multiclass', 'multilabel'}
         assert 0 < threshold < 1, 'theshold must be in the range (0, 1).'
         if ids is None:
             ids = range(len(corpus))
         y_probs = self.__models[model_type].predict_proba(corpus)
-        df_probs = pd.DataFrame(y_probs, columns = list(range(1, 18)))
+        df_probs = pd.DataFrame(y_probs, columns=list(range(1, 18)))
         df_probs.insert(0, 'text_id', ids)
-        df_probs = df_probs.melt(id_vars = 'text_id', var_name = 'sdg', value_name = 'prob')\
-            .query('prob > @threshold').sort_values('prob', ascending = False)
+        df_probs = df_probs.melt(id_vars='text_id', var_name='sdg', value_name='prob')\
+            .query('prob > @threshold').sort_values('prob', ascending=False)
 
-        col_name = f'sdgs_{model_type}'
+        # in case no rows are left, return an empty DataFrame
         if df_probs.empty:
-            df_probs = df_probs.set_index('text_id').reindex([col_name], axis = 1)
+            df_probs = df_probs.set_index('text_id').reindex([model_type], axis=1)
         else:
             df_probs = df_probs.groupby('text_id')\
                 .apply(lambda row: dict(zip(row['sdg'], row['prob'].round(2))))\
-                .to_frame(name = col_name)
+                .to_frame(name=model_type)
         return df_probs
 
-    def predict(self, corpus: List[str], ids: List[Any] = None, threshold: float = .5) -> pd.DataFrame:
+    def predict_with_models(self, corpus: List[str], ids: List[Any] = None, threshold: float = .5) -> pd.DataFrame:
         """
-        Predict sdg labels for a given corpus.
+        Predict sdg labels for a given corpus using both models.
 
         Uses each model to predict sdgs and store them in a column. If ids are passed, these are used as indices in
         the output dataframe. If not, a range index is used.
@@ -139,8 +121,8 @@ class SDGModels(object):
         corpus : List[str]
             A list of texts to predict sdgs for.
         ids : List[Any], optional
-            An optional list of ids to be used as indices in the output dataframe.
-        threshold: float, default=.5
+            A list of ids to be used as indices in the output dataframe. If not specified, a range index is used.
+        threshold : float, optional, default=.5
             A minimum probability threshold to assign an sdg label.
 
         Returns
@@ -150,10 +132,30 @@ class SDGModels(object):
         """
         if ids is not None:
             assert len(corpus) == len(ids), 'corpus and ids must be of the same length.'
-        df_probs = self.predict_relevant(corpus = corpus, ids = ids)
-        for model_type in ('multiclass', 'multilabel'):
-            df_temp = self.predict_sdgs(model_type = model_type, corpus = corpus, ids = ids, threshold = threshold)
-            df_probs = df_probs.join(df_temp, how = 'left')
+        df_multiclass = self.predict_with_model(model_type='multiclass', corpus=corpus, ids=ids, threshold=threshold)
+        df_multilabel = self.predict_with_model(model_type='multilabel', corpus=corpus, ids=ids, threshold=threshold)
+        df_probs = df_multilabel.join(df_multiclass, how='outer')
+        return df_probs
+
+    def predict(self, corpus: List[str], ids: List[Any] = None, threshold: float = .5) -> pd.DataFrame:
+        """
+        An alias for self.predict_with_models
+
+        Parameters
+        ----------
+        corpus : List[str]
+            A list of texts to predict sdgs for.
+        ids : List[Any], optional
+            A list of ids to be used as indices in the output dataframe. If not specified, a range index is used.
+        threshold : float, optional, default=.5
+            A minimum probability threshold to assign an sdg label.
+
+        Returns
+        -------
+        df_probs : pd.DataFrame
+            A dataframe each column corresponding to each model's predictions. Indices are aligned with the corpus.
+        """
+        df_probs = self.predict_with_models(corpus=corpus, ids=ids, threshold=threshold)
         return df_probs
 
     @property
