@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "sdgminer"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 description = "Analyse text data with respect to the Sustainable Development Goals (SDGs)."
 authors = ["Mykola Skrynnyk"]
 license = "GNU General Public License v3.0"
